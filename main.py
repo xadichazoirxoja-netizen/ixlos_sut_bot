@@ -1,83 +1,80 @@
-from telegram import Update, ReplyKeyboardMarkup
-from telegram.ext import (
-Application,
-CommandHandler,
-MessageHandler,
-ContextTypes,
-filters,
-)
+from telegram import Update, ReplyKeyboardMarkup, KeyboardButton
+from telegram.ext import Application, CommandHandler, MessageHandler, ContextTypes, filters
 import os
 
 TOKEN = os.getenv("BOT_TOKEN")
 ADMIN_ID = int(os.getenv("ADMIN_ID"))
 
-MENU = """
-🥛 Ixlos Sut Bot
-
-Mahsulotlar:
-
-🥛 1 litr sut — 12 000 so'm
-
-Buyurtma berish uchun ismingizni yozing.
-"""
-
 users = {}
 
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
-await update.message.reply_text(MENU)
+    users[update.effective_user.id] = {}
+
+    await update.message.reply_text(
+        "🥛 Assalomu alaykum!\n\nIxlos Sut Botga xush kelibsiz.\n\nIsmingizni yozing."
+    )
 
 async def message(update: Update, context: ContextTypes.DEFAULT_TYPE):
-user = update.effective_user.id
-text = update.message.text
+    user = update.effective_user.id
+    text = update.message.text
 
-if user not in users:  
-    users[user] = {"name": text}  
-    kb = ReplyKeyboardMarkup(  
-        [[{"text": "📞 Telefon raqamni yuborish", "request_contact": True}]],  
-        resize_keyboard=True,  
-        one_time_keyboard=True,  
-    )  
-    await update.message.reply_text(  
-        "Telefon raqamingizni yuboring.",  
-        reply_markup=kb,  
-    )  
-    return  
+    if "name" not in users[user]:
+        users[user]["name"] = text
 
-users[user]["address"] = text  
+        keyboard = ReplyKeyboardMarkup(
+            [[KeyboardButton("📞 Telefon raqamni yuborish", request_contact=True)]],
+            resize_keyboard=True,
+            one_time_keyboard=True,
+        )
 
-data = users[user]  
+        await update.message.reply_text(
+            "Telefon raqamingizni yuboring.",
+            reply_markup=keyboard,
+        )
+        return
 
-msg = f"""
+    if "phone" in users[user] and "address" not in users[user]:
+        users[user]["address"] = text
 
+        data = users[user]
+
+        msg = f"""
 🛒 Yangi buyurtma
 
 👤 Ism: {data['name']}
+📞 Telefon: {data['phone']}
 📍 Manzil: {data['address']}
+
+🥛 Mahsulot:
+1 litr sut — 12 000 so'm
 """
 
-await context.bot.send_message(ADMIN_ID, msg)  
+        await context.bot.send_message(chat_id=ADMIN_ID, text=msg)
 
-await update.message.reply_text(  
-    "✅ Buyurtmangiz qabul qilindi. Tez orada siz bilan bog'lanamiz."  
-)
+        await update.message.reply_text(
+            "✅ Buyurtmangiz qabul qilindi.\nTez orada siz bilan bog'lanamiz."
+        )
+
+        users.pop(user)
 
 async def contact(update: Update, context: ContextTypes.DEFAULT_TYPE):
-user = update.effective_user.id
+    user = update.effective_user.id
 
-users[user]["phone"] = update.message.contact.phone_number  
+    users[user]["phone"] = update.message.contact.phone_number
 
-await update.message.reply_text(  
-    "📍 Endi manzilingizni yozing."  
-)
+    await update.message.reply_text(
+        "📍 Endi manzilingizni yozing."
+    )
 
 def main():
-app = Application.builder().token(TOKEN).build()
+    app = Application.builder().token(TOKEN).build()
 
-app.add_handler(CommandHandler("start", start))  
-app.add_handler(MessageHandler(filters.CONTACT, contact))  
-app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, message))  
+    app.add_handler(CommandHandler("start", start))
+    app.add_handler(MessageHandler(filters.CONTACT, contact))
+    app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, message))
 
-app.run_polling()
+    print("Bot ishga tushdi...")
+    app.run_polling()
 
-if name == "main":
-main()
+if __name__ == "__main__":
+    main()
